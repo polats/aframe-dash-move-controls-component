@@ -227,8 +227,18 @@ AFRAME.registerComponent('dash-move-controls', {
       var matrixWorld = this.obj.matrixWorld;
       matrixWorld.decompose(translation, quaternion, scale);
 
+
+      /*
       var direction = shootAngle.set(this.__mouse.x, this.__mouse.y, -1)
         .applyQuaternion(quaternion).normalize();
+      */
+      const camera = this.el.getObject3D('camera');
+
+
+      var raycaster = this.raycaster;
+      var __mouse = this.__mouse;
+      var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+
       this.line.setDirection(direction.clone());
       p0.copy(this.obj.position);
 

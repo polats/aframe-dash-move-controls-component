@@ -10,7 +10,6 @@
   <body style="background-color: #000">
     <a-scene>
 
-<!--
       <a-entity
           id="orbit-camera"
           camera
@@ -24,9 +23,21 @@
               rotateSpeed:0.25;
               minDistance:3;
               maxDistance:100;"
-              shoot="direction: 0 0 -1; spaceKeyEnabled: true">
+              >
       </a-entity>
--->
+
+      <a-entity
+        id="fps-camera"
+        camera="enabled: false;"
+        position="0 0.5 0"
+        dash-move-controls="type:line"
+        wasd-controls
+        shoot="direction: 0 0 -1; spaceKeyEnabled: true">
+        <a-box color="tomato" depth="1" height="1" width="1">
+        </a-box>
+      </a-entity>
+
+<!--
 
     <a-camera
       id="fps-camera"
@@ -35,6 +46,7 @@
       dash-move-controls="type:line"
       shoot="direction: 0 0 -1; spaceKeyEnabled: true">
     </a-camera>
+-->
 
       <!-- scene geometry -->
       <a-entity id="floor"
