@@ -119,7 +119,8 @@ AFRAME.registerComponent('dash-move-controls', {
     curveMissColor: {type: 'color', default: '#ff0000'},
     curveShootingSpeed: {default: 5, min: 0, if: {type: ['parabolic']}},
     landingNormal: {type: 'vec3', default: '0 1 0'},
-    landingMaxAngle: {default: '45', min: 0, max: 360}
+    landingMaxAngle: {default: '45', min: 0, max: 360},
+    raycastCamera: {default: ''}
   },
 
   init: function () {
@@ -232,11 +233,12 @@ AFRAME.registerComponent('dash-move-controls', {
       var direction = shootAngle.set(this.__mouse.x, this.__mouse.y, -1)
         .applyQuaternion(quaternion).normalize();
       */
-      const camera = this.el.getObject3D('camera');
 
-
+      const camera =  this.el.sceneEl.querySelector( this.data.raycastCamera ).getObject3D('camera');
       var raycaster = this.raycaster;
       var __mouse = this.__mouse;
+
+      raycaster.ray.origin.setFromMatrixPosition(camera.matrixWorld)
       var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
 
       this.line.setDirection(direction.clone());
