@@ -112,9 +112,9 @@ AFRAME.registerComponent('dash-move-controls', {
     hitCylinderColor: {type: 'color', default: '#99ff99'},
     hitCylinderRadius: {default: 0.25, min: 0},
     hitCylinderHeight: {default: 0.3, min: 0},
-    maxLength: {default: 10, min: 0, if: {type: ['line']}},
+    maxLength: {default: 30, min: 0, if: {type: ['line']}},
     curveNumberPoints: {default: 30, min: 2, if: {type: ['parabolic']}},
-    curveLineWidth: {default: 0.025},
+    curveLineWidth: {default: 0.2},
     curveHitColor: {type: 'color', default: '#99ff99'},
     curveMissColor: {type: 'color', default: '#ff0000'},
     curveShootingSpeed: {default: 5, min: 0, if: {type: ['parabolic']}},
@@ -225,11 +225,10 @@ AFRAME.registerComponent('dash-move-controls', {
         this.teleportDistance += 0.1;
       }
 
+      /*
       var matrixWorld = this.obj.matrixWorld;
       matrixWorld.decompose(translation, quaternion, scale);
 
-
-      /*
       var direction = shootAngle.set(this.__mouse.x, this.__mouse.y, -1)
         .applyQuaternion(quaternion).normalize();
       */
@@ -242,7 +241,9 @@ AFRAME.registerComponent('dash-move-controls', {
       var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
 
       this.line.setDirection(direction.clone());
-      p0.copy(this.obj.position);
+
+      // p0.copy(this.obj.position);
+      p0.copy(this.el.sceneEl.querySelector( this.data.raycastCamera ).object3D.position);
 
       var last = p0.clone();
       var next;
@@ -274,7 +275,9 @@ AFRAME.registerComponent('dash-move-controls', {
         this.raycaster.far = this.data.maxLength;
 
         this.raycaster.set(p0, direction);
-        this.line.setPoint(0, p0);
+
+        // this.line.setPoint(0, p0);
+        this.line.setPoint(0, this.obj.position);
 
         this.checkMeshCollisions(1, next);
       }

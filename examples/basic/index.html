@@ -10,11 +10,10 @@
   <body style="background-color: #000">
     <a-scene>
 
-
       <a-entity
           id="orbit-camera"
           camera
-          position="0 9 14" rotation="0 0 0"
+          position="0 9 14" rotation="-45 0 0"
           near="1000" far="4000" fov="2.2" user-height="0"
           orbit-controls="
               autoRotate: false;
@@ -24,16 +23,15 @@
               rotateSpeed:0.25;
               minDistance:3;
               maxDistance:100;"
-              >
+>
       </a-entity>
 
       <a-entity
         id="fps-camera"
         camera="enabled: false;"
-        position="0 0.5 0"
-        dash-move-controls="type:line; raycastCamera: #orbit-camera"
-        wasd-controls
-        shoot="direction: 0 0 -1; spaceKeyEnabled: true">
+        position="0 4 0"
+        dash-move-controls="type:line; raycastCamera: #orbit-camera"        
+        wasd-controls>
         <a-box color="tomato" depth="1" height="1" width="1">
         </a-box>
       </a-entity>
