@@ -333,14 +333,14 @@ AFRAME.registerComponent('dash-move-controls', {
    * Get mouse position
    * @private
    */
-  __getPosition (evt) {
-    const { innerWidth: w, innerHeight: h } = window
+  __getPosition: function (evt) {
+    var __window = { innerWidth: w, innerHeight: h } = window
 
-    let cx, cy
+    var cx, cy
     if (this.__isMobile) {
-      const { touches } = evt
+      var touches = evt
       if (!touches || touches.length !== 1) { return }
-      const touch = touches[0]
+      var touch = touches[0]
       cx = touch.pageX
       cy = touch.pageY
     }
@@ -353,10 +353,10 @@ AFRAME.registerComponent('dash-move-controls', {
       cx = (cx % (w/2)) * 2
     }
 
-    const x = (cx / w) * 2 - 1
-    const y = - (cy / h) * 2 + 1
+    var x = (cx / w) * 2 - 1
+    var y = - (cy / h) * 2 + 1
 
-    return { x, y }
+    return { x:x, y:y }
 
   },
 
@@ -364,14 +364,14 @@ AFRAME.registerComponent('dash-move-controls', {
    * Update mouse
    * @private
    */
-  __updateMouse (evt) {
+  __updateMouse: function (evt) {
     const pos = this.__getPosition(evt)
     if (pos === null) { return }
     this.__mouse.x = pos.x
     this.__mouse.y = pos.y
   },
 
-  __onMouseMove (evt) {
+  __onMouseMove: function (evt) {
     // if (!this.__isActive()) { return }
 
     this.__updateMouse(evt)
