@@ -115,8 +115,10 @@ AFRAME.registerComponent('dash-move-controls', {
     maxLength: {default: 30, min: 0, if: {type: ['line']}},
     curveNumberPoints: {default: 30, min: 2, if: {type: ['parabolic']}},
     curveLineWidth: {default: 0.2},
+    curveChargingLineWidth: {default: 0.5},
     curveHitColor: {type: 'color', default: '#99ff99'},
     curveMissColor: {type: 'color', default: '#ff0000'},
+    curveChargingColor:  {type: 'color', default: '#0000ff'},
     curveShootingSpeed: {default: 5, min: 0, if: {type: ['parabolic']}},
     landingNormal: {type: 'vec3', default: '0 1 0'},
     landingMaxAngle: {default: '45', min: 0, max: 360},
@@ -127,6 +129,7 @@ AFRAME.registerComponent('dash-move-controls', {
     var data = this.data;
     var el = this.el;
     var teleportEntity;
+    var chargeEntity;
 
     this.active = false;
     this.obj = el.object3D;
@@ -149,6 +152,12 @@ AFRAME.registerComponent('dash-move-controls', {
     teleportEntity.classList.add('teleportRay');
     teleportEntity.setAttribute('visible', false);
     el.sceneEl.appendChild(this.teleportEntity);
+
+    chargeEntity = this.chargeEntity = document.createElement('a-entity');
+    chargeEntity.classList.add('chargeRay');
+    chargeEntity.setAttribute('visible', false);
+    el.sceneEl.appendChild(this.chargeEntity);
+
 
     el.addEventListener(data.button + 'down', this.onButtonDown.bind(this));
     el.addEventListener(data.button + 'up', this.onButtonUp.bind(this));
@@ -179,8 +188,10 @@ AFRAME.registerComponent('dash-move-controls', {
     // Create or update line mesh.
     if (!this.line ||
         'curveLineWidth' in diff || 'curveNumberPoints' in diff || 'type' in diff) {
-      this.line = createLine(data);
+      this.line = createLine(data, data.curveLineWidth);
+      this.chargeline = createLine(data, data.curveChargingLineWidth);
       this.teleportEntity.setObject3D('mesh', this.line.mesh);
+      this.chargeEntity.setObject3D('mesh', this.chargeline.mesh);
     }
 
     // Create or update hit entity.
@@ -202,12 +213,36 @@ AFRAME.registerComponent('dash-move-controls', {
     var el = this.el;
     var hitEntity = this.hitEntity;
     var teleportEntity = this.teleportEntity;
+    var chargeEntity = this.chargeEntity;
 
     if (hitEntity) { hitEntity.parentNode.removeChild(hitEntity); }
     if (teleportEntity) { teleportEntity.parentNode.removeChild(teleportEntity); }
+    if (chargeEntity) { chargeEntity.parentNode.removeChild(chargeEntity); }
+
 
     el.sceneEl.removeEventListener('child-attached', this.childAttachHandler);
     el.sceneEl.removeEventListener('child-detached', this.childDetachHandler);
+  },
+
+  getDirectionVector: function (p1, p2) {
+
+      return new THREE.Vector3(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+  },
+
+  getPointInBetweenByLen: function (pointA, pointB, length) {
+
+      var dir = pointB.clone().sub(pointA).normalize().multiplyScalar(length);
+      return pointA.clone().add(dir);
+
+  },
+
+   getPointInBetweenByPerc: function (pointA, pointB, percentage) {
+
+      var dir = pointB.clone().sub(pointA);
+      var len = dir.length();
+      dir = dir.normalize().multiplyScalar(len*percentage);
+      return pointA.clone().add(dir);
+
   },
 
   tick: (function () {
@@ -254,6 +289,10 @@ AFRAME.registerComponent('dash-move-controls', {
       this.hitEntity.setAttribute('visible', false);
       this.hit = false;
 
+      // set chargeline colors
+      this.chargeEntity.setAttribute('visible', true);
+      this.chargeline.material.color.set(this.curveChargingColor);
+
       if (this.data.type === 'parabolic') {
         var v0 = direction.clone().multiplyScalar(this.data.curveShootingSpeed + this.teleportDistance);
         var g = -9.8;
@@ -278,8 +317,22 @@ AFRAME.registerComponent('dash-move-controls', {
 
         // this.line.setPoint(0, p0);
         this.line.setPoint(0, this.obj.position);
-
         this.checkMeshCollisions(1, next);
+
+        var chargelineStart = this.obj.position.clone();
+        var chargelineEnd = this.hitPoint.clone();
+        chargelineStart.y = 0.1;
+        chargelineEnd.y = 0.1;
+
+        var chargedirection = this.getDirectionVector(chargelineStart, chargelineEnd);
+        this.chargeline.setDirection(chargedirection);
+
+        chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.teleportDistance);
+
+        this.chargeline.setPoint(0, chargelineStart);
+        this.chargeline.setPoint(1, chargelineEnd);
+
+
       }
     };
   })(),
@@ -484,9 +537,9 @@ AFRAME.registerComponent('dash-move-controls', {
 });
 
 
-function createLine (data) {
+function createLine (data, width) {
   var numPoints = data.type === 'line' ? 2 : data.curveNumberPoints;
-  return new RayCurve(numPoints, data.curveLineWidth);
+  return new RayCurve(numPoints, width);
 }
 
 /**
