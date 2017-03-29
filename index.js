@@ -122,7 +122,10 @@ AFRAME.registerComponent('dash-move-controls', {
     curveShootingSpeed: {default: 5, min: 0, if: {type: ['parabolic']}},
     landingNormal: {type: 'vec3', default: '0 1 0'},
     landingMaxAngle: {default: '45', min: 0, max: 360},
-    raycastCamera: {default: ''}
+    raycastCamera: {default: ''},
+    dashLineLength: {default: '3'},
+    showTeleportRay: {default: true}
+
   },
 
   init: function () {
@@ -291,7 +294,7 @@ AFRAME.registerComponent('dash-move-controls', {
 
       // set chargeline colors
       this.chargeEntity.setAttribute('visible', true);
-      this.chargeline.material.color.set(this.curveChargingColor);
+      this.chargeline.material.color.set(this.data.curveChargingColor);
 
       if (this.data.type === 'parabolic') {
         var v0 = direction.clone().multiplyScalar(this.data.curveShootingSpeed + this.teleportDistance);
@@ -326,8 +329,9 @@ AFRAME.registerComponent('dash-move-controls', {
 
         var chargedirection = this.getDirectionVector(chargelineStart, chargelineEnd);
         this.chargeline.setDirection(chargedirection);
+        this.chargeline.setWidth(0.1 + (this.teleportDistance / 25));
 
-        chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.teleportDistance);
+        chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.data.dashLineLength);
 
         this.chargeline.setPoint(0, chargelineStart);
         this.chargeline.setPoint(1, chargelineEnd);
@@ -449,6 +453,7 @@ AFRAME.registerComponent('dash-move-controls', {
         else return;
     }
 
+
     // Jump!
     this.keyUp = true;
     this.teleportDistance = 0;
@@ -464,7 +469,9 @@ AFRAME.registerComponent('dash-move-controls', {
     }
 
     // @todo Create this aux vectors outside
-    var cameraEl = this.el.sceneEl.camera.el;
+
+    // var cameraEl = this.el.sceneEl.camera.el;
+    var cameraEl = this.el;
     var camPosition = new THREE.Vector3().copy(cameraEl.getAttribute('position'));
 
     var newCamPositionY = camPosition.y + this.hitPoint.y - this.prevHeightDiff;
@@ -483,11 +490,14 @@ AFRAME.registerComponent('dash-move-controls', {
       hands[i].setAttribute('position', newPosition);
     }
 
+    /*
     this.el.emit('teleport', {
       oldPosition: camPosition,
       newPosition: newCamPosition,
       hitPoint: this.hitPoint
     });
+    */
+
   },
 
   /**

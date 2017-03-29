@@ -10,20 +10,22 @@
   <body style="background-color: #000">
     <a-scene>
 
+      <!--
+      orbit-controls="
+          autoRotate: false;
+          target: #floor;
+          enableDamping: true;
+          dampingFactor: 0.125;
+          rotateSpeed:0.25;
+          minDistance:3;
+          maxDistance:100;">
+      -->
+
       <a-entity
           id="orbit-camera"
           camera
           position="0 9 14" rotation="-45 0 0"
-          near="1000" far="4000" fov="2.2" user-height="0"
-          orbit-controls="
-              autoRotate: false;
-              target: #floor;
-              enableDamping: true;
-              dampingFactor: 0.125;
-              rotateSpeed:0.25;
-              minDistance:3;
-              maxDistance:100;"
->
+          near="1000" far="4000" fov="2.2" user-height="0">
       </a-entity>
 
       <a-entity
@@ -35,17 +37,6 @@
         <a-box color="tomato" depth="1" height="1" width="1">
         </a-box>
       </a-entity>
-
-<!--
-
-    <a-camera
-      id="fps-camera"
-      user-height="1"
-      raycaster
-      dash-move-controls="type:line"
-      shoot="direction: 0 0 -1; spaceKeyEnabled: true">
-    </a-camera>
--->
 
       <!-- scene geometry -->
       <a-entity id="floor"
