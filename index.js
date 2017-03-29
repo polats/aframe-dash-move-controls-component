@@ -149,7 +149,8 @@ AFRAME.registerComponent('dash-move-controls', {
     this.defaultPlane = createDefaultPlane();
 
     this.keyUp = true;
-    this.teleportDistance = 0;
+    this.dashSpeed = 0;
+    this.chargedirection = new THREE.Vector3();
 
     teleportEntity = this.teleportEntity = document.createElement('a-entity');
     teleportEntity.classList.add('teleportRay');
@@ -260,7 +261,7 @@ AFRAME.registerComponent('dash-move-controls', {
       // if (!this.active) { return; }
       if (!this.keyUp)
       {
-        this.teleportDistance += 0.1;
+        this.dashSpeed += 0.1;
       }
 
       /*
@@ -297,7 +298,7 @@ AFRAME.registerComponent('dash-move-controls', {
       this.chargeline.material.color.set(this.data.curveChargingColor);
 
       if (this.data.type === 'parabolic') {
-        var v0 = direction.clone().multiplyScalar(this.data.curveShootingSpeed + this.teleportDistance);
+        var v0 = direction.clone().multiplyScalar(this.data.curveShootingSpeed + this.dashSpeed);
         var g = -9.8;
         var a = new THREE.Vector3(0, g, 0);
 
@@ -327,9 +328,9 @@ AFRAME.registerComponent('dash-move-controls', {
         chargelineStart.y = 0.1;
         chargelineEnd.y = 0.1;
 
-        var chargedirection = this.getDirectionVector(chargelineStart, chargelineEnd);
-        this.chargeline.setDirection(chargedirection);
-        this.chargeline.setWidth(0.1 + (this.teleportDistance / 25));
+        this.chargedirection = this.getDirectionVector(chargelineStart, chargelineEnd);
+        this.chargeline.setDirection(this.chargedirection);
+        this.chargeline.setWidth(0.1 + (this.dashSpeed / 25));
 
         chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.data.dashLineLength);
 
@@ -454,15 +455,6 @@ AFRAME.registerComponent('dash-move-controls', {
     }
 
 
-    // Jump!
-    this.keyUp = true;
-    this.teleportDistance = 0;
-
-    // Hide the hit point and the curve
-    this.active = false;
-    this.hitEntity.setAttribute('visible', false);
-    this.teleportEntity.setAttribute('visible', false);
-
     if (!this.hit) {
       // Button released but not hit point
       return;
@@ -497,6 +489,22 @@ AFRAME.registerComponent('dash-move-controls', {
       hitPoint: this.hitPoint
     });
     */
+
+    this.el.emit('dash-move', {
+      dashSpeed: this.dashSpeed,
+      dashVector: this.chargedirection
+    });
+
+    // Jump!
+    this.keyUp = true;
+    this.dashSpeed = 0;
+
+    // Hide the hit point and the curve
+    this.active = false;
+    this.hitEntity.setAttribute('visible', false);
+    this.teleportEntity.setAttribute('visible', false);
+
+
 
   },
 
