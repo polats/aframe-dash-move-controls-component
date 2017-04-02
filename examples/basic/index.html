@@ -2,7 +2,9 @@
   <head>
     <title>A-Frame Dash Move Controls Component - Basic</title>
     <meta name="description" content="Basic example for Dash Move Controls component."></meta>
-    <script src="../build.js"></script>
+
+    <script src="https://aframe.io/releases/0.5.0/aframe.min.js"></script>
+    <script src="../../dist/aframe-dash-move-controls-component.js"></script>
     <script src="../vendor/aframe-orbit-controls-component.min.js"></script>
     <script src="../common/shaders/skyGradient.js"></script>
   </head>
@@ -33,9 +35,10 @@
         camera="enabled: false;"
         position="0 2 0"
         dash-move-controls="type:line; raycastCamera: #orbit-camera"
+        velocity-trail
         wasd-controls>
-        <a-box color="tomato" depth="1" height="1" width="1">
-        </a-box>
+        <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.5">
+        </a-sphere>
       </a-entity>
 
       <!-- scene geometry -->
@@ -58,6 +61,12 @@
 
               if (scene.hasLoaded) addEventListeners();
               else scene.addEventListener( 'loaded', addEventListeners );
+          });
+
+          document.addEventListener("dash-move", function(event)
+          {
+            console.log(event.detail.dashSpeed);
+            console.log(event.detail.dashVector);
           });
 
           function addEventListeners()
