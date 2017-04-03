@@ -396,7 +396,8 @@ AFRAME.registerComponent('dash-move-controls', {
     landingMaxAngle: {default: '45', min: 0, max: 360},
     raycastCamera: {default: ''},
     dashLineLength: {default: '3'},
-    showTeleportRay: {default: true}
+    showTeleportRay: {default: true},
+    moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']}
 
   },
 
@@ -612,12 +613,22 @@ AFRAME.registerComponent('dash-move-controls', {
 
       }
 
-      var cameraEl = this.el;
-      var camPosition = new THREE.Vector3().copy(cameraEl.getAttribute('position'));
+      if (this.data.moveScheme == 'cursor')
+      {
+        var cameraEl = this.el;
+        var camPosition = new THREE.Vector3().copy(cameraEl.getAttribute('position'));
 
-      var newCamPosition = camPosition.add(this.chargedirection);
+        var newCamPosition = camPosition.add(this.chargedirection.multiplyScalar(0.05));
 
-      cameraEl.setAttribute('position', newCamPosition);
+        cameraEl.setAttribute('position', newCamPosition);
+
+        this.el.emit('dash-move', {
+          dashSpeed: this.dashSpeed,
+          dashVector: this.chargedirection
+        });
+        
+      }
+
 
 
     };
@@ -771,10 +782,12 @@ AFRAME.registerComponent('dash-move-controls', {
     });
     */
 
+    /*
     this.el.emit('dash-move', {
       dashSpeed: this.dashSpeed,
       dashVector: this.chargedirection
     });
+    */
 
     // Jump!
     this.keyUp = true;
