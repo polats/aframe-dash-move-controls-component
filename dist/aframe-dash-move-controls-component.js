@@ -734,7 +734,9 @@
 	    var __window = { innerWidth: w, innerHeight: h } = window
 
 	    var cx, cy
-	    if (this.__isMobile) {
+	//    if (this.__isMobile) { // mousemove works on mobile
+	    if (false)
+	    {
 	      var touches = evt
 	      if (!touches || touches.length !== 1) { return }
 	      var touch = touches[0]
@@ -745,6 +747,28 @@
 	      cx = evt.clientX
 	      cy = evt.clientY
 	    }
+
+	    if (this.__isStereo) {
+	      cx = (cx % (w/2)) * 2
+	    }
+
+	    var x = (cx / w) * 2 - 1
+	    var y = - (cy / h) * 2 + 1
+
+	    return { x:x, y:y }
+
+	  },
+
+	  __getTouchPosition: function (evt) {
+	    var __window = { innerWidth: w, innerHeight: h } = window
+
+	    var cx, cy
+
+	    var touches = evt.changedTouches
+	    if (!touches || touches.length !== 1) { return }
+	    var touch = touches[0]
+	    cx = touch.clientX
+	    cy = touch.clientY
 
 	    if (this.__isStereo) {
 	      cx = (cx % (w/2)) * 2
@@ -770,23 +794,16 @@
 
 	  __onTouch: function (evt)
 	  {
-	    var touches = evt.changedTouches;
-
-	    for (var i = 0; i < touches.length; i++)
-	    {
-	      this.__mouse.x = touches[i].pageX;
-	      this.__mouse.y = touches[i].pageY;
-	    }
+	    const pos = this.__getTouchPosition(evt)
+	    if (pos === null) { return }
+	    this.__mouse.x = pos.x
+	    this.__mouse.y = pos.y
 	  },
 
 	  __onMouseMove: function (evt) {
 	    // if (!this.__isActive()) { return }
 
-	    console.log(evt.type);
-	    if (evt.type == "mousemove")
-	    {
-	      this.__updateMouse(evt);
-	    }
+	    this.__updateMouse(evt)
 	    // this.__updateIntersectObject()
 
 	    // if (this.__isDown) {
