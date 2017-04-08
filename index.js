@@ -397,6 +397,7 @@ AFRAME.registerComponent('dash-move-controls', {
     raycastCamera: {default: ''},
     dashLineLength: {default: '3'},
     showTeleportRay: {default: true},
+    showChargeLine: {default: false},
     moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']}
 
   },
@@ -553,7 +554,8 @@ AFRAME.registerComponent('dash-move-controls', {
       raycaster.ray.origin.setFromMatrixPosition(camera.matrixWorld)
       var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
 
-      this.line.setDirection(direction.clone());
+      if (this.data.showTeleportRay)
+        this.line.setDirection(direction.clone());
 
       // p0.copy(this.obj.position);
       p0.copy(this.el.sceneEl.querySelector( this.data.raycastCamera ).object3D.position);
@@ -603,14 +605,17 @@ AFRAME.registerComponent('dash-move-controls', {
         chargelineEnd.y = 0.1;
 
         this.chargedirection = this.getDirectionVector(chargelineStart, chargelineEnd);
-        this.chargeline.setDirection(this.chargedirection);
-        this.chargeline.setWidth(0.1 + (this.dashSpeed / 25));
 
-        chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.data.dashLineLength);
+        if (this.data.showChargeLine)
+        {
+            this.chargeline.setDirection(this.chargedirection);
+            this.chargeline.setWidth(0.1 + (this.dashSpeed / 25));
 
-        this.chargeline.setPoint(0, chargelineStart);
-        this.chargeline.setPoint(1, chargelineEnd);
+            chargelineEnd = this.getPointInBetweenByLen(chargelineStart, chargelineEnd, this.data.dashLineLength);
 
+            this.chargeline.setPoint(0, chargelineStart);
+            this.chargeline.setPoint(1, chargelineEnd);
+        }
 
       }
 
@@ -788,49 +793,55 @@ AFRAME.registerComponent('dash-move-controls', {
     // @todo Create this aux vectors outside
 
     // var cameraEl = this.el.sceneEl.camera.el;
-    var cameraEl = this.el;
-    var camPosition = new THREE.Vector3().copy(cameraEl.getAttribute('position'));
+    if (this.data.moveScheme == 'button')
+    {
 
-    var newCamPositionY = camPosition.y + this.hitPoint.y - this.prevHeightDiff;
-    var newCamPosition = new THREE.Vector3(this.hitPoint.x, newCamPositionY, this.hitPoint.z);
-    this.prevHeightDiff = this.hitPoint.y;
+      var cameraEl = this.el;
+      var camPosition = new THREE.Vector3().copy(cameraEl.getAttribute('position'));
 
-    cameraEl.setAttribute('position', newCamPosition);
+      var newCamPositionY = camPosition.y + this.hitPoint.y - this.prevHeightDiff;
+      var newCamPosition = new THREE.Vector3(this.hitPoint.x, newCamPositionY, this.hitPoint.z);
+      this.prevHeightDiff = this.hitPoint.y;
 
-    // Find the hands and move them proportionally
-    var hands = document.querySelectorAll('a-entity[tracked-controls]');
-    for (var i = 0; i < hands.length; i++) {
-      var position = hands[i].getAttribute('position');
-      var pos = new THREE.Vector3().copy(position);
-      var diff = camPosition.clone().sub(pos);
-      var newPosition = newCamPosition.clone().sub(diff);
-      hands[i].setAttribute('position', newPosition);
+
+      // newCamPosition = camPosition.add(this.chargedirection.multiplyScalar(this.dashSpeed / 10));
+
+
+
+      cameraEl.setAttribute('position', newCamPosition);
+
+      // Find the hands and move them proportionally
+      var hands = document.querySelectorAll('a-entity[tracked-controls]');
+      for (var i = 0; i < hands.length; i++) {
+        var position = hands[i].getAttribute('position');
+        var pos = new THREE.Vector3().copy(position);
+        var diff = camPosition.clone().sub(pos);
+        var newPosition = newCamPosition.clone().sub(diff);
+        hands[i].setAttribute('position', newPosition);
+      }
+
+      /*
+      this.el.emit('teleport', {
+        oldPosition: camPosition,
+        newPosition: newCamPosition,
+        hitPoint: this.hitPoint
+      });
+      */
+
+      this.el.emit('dash-move', {
+        dashSpeed: this.dashSpeed,
+        dashVector: this.chargedirection
+      });
+
+      // Jump!
+      this.keyUp = true;
+      this.dashSpeed = 0;
+
+      // Hide the hit point and the curve
+      this.active = false;
+      this.hitEntity.setAttribute('visible', false);
+      this.teleportEntity.setAttribute('visible', false);
     }
-
-    /*
-    this.el.emit('teleport', {
-      oldPosition: camPosition,
-      newPosition: newCamPosition,
-      hitPoint: this.hitPoint
-    });
-    */
-
-    /*
-    this.el.emit('dash-move', {
-      dashSpeed: this.dashSpeed,
-      dashVector: this.chargedirection
-    });
-    */
-
-    // Jump!
-    this.keyUp = true;
-    this.dashSpeed = 0;
-
-    // Hide the hit point and the curve
-    this.active = false;
-    this.hitEntity.setAttribute('visible', false);
-    this.teleportEntity.setAttribute('visible', false);
-
 
 
   },
@@ -858,9 +869,12 @@ AFRAME.registerComponent('dash-move-controls', {
       var point = intersects[0].point;
 
       this.line.material.color.set(this.curveHitColor);
-      this.hitEntity.setAttribute('position', point);
-      this.hitEntity.setAttribute('visible', true);
 
+      if (this.data.showTeleportRay)
+      {
+        this.hitEntity.setAttribute('position', point);
+        this.hitEntity.setAttribute('visible', true);
+      }
       this.hit = true;
       this.hitPoint.copy(intersects[0].point);
 

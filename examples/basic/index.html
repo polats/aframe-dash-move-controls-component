@@ -33,16 +33,14 @@
           near="1000" far="4000" fov="2.2" user-height="0">
       </a-entity>
 
-      <a-entity
-        id="fps-camera"
-        camera="enabled: false;"
-        position="0 2 0"
-        dash-move-controls="type:line; raycastCamera: #orbit-camera"
-        velocity-trail
-        wasd-controls>
-        <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.25">
-        </a-sphere>
-      </a-entity>
+      <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.25"
+      dash-move-controls="type:line; raycastCamera: #orbit-camera"
+      velocity-trail position="0 2 0">
+        <a-entity
+          id="fps-camera"
+          camera="enabled: false;">
+        </a-entity>
+      </a-sphere>
 
       <!-- scene geometry -->
       <a-entity id="floor"
@@ -86,10 +84,12 @@
               if( cam1.components.camera.data.active )
               {
                   cam2.setAttribute('camera', 'active', true);
+                  cam1.setAttribute('camera', 'active', false);
               }
               else
               {
                   cam1.setAttribute('camera', 'active', true);
+                  cam2.setAttribute('camera', 'active', false);
               }
           }
       </script>
