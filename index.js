@@ -736,7 +736,11 @@ AFRAME.registerComponent('dash-move-controls', {
   __onMouseMove: function (evt) {
     // if (!this.__isActive()) { return }
 
-    this.__updateMouse(evt)
+    console.log(evt.type);
+    if (evt.type == "mousemove")
+    {
+      this.__updateMouse(evt);
+    }
     // this.__updateIntersectObject()
 
     // if (this.__isDown) {
