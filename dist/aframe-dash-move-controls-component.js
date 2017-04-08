@@ -487,10 +487,11 @@
 
 	    window.addEventListener('keydown', this.onButtonDown.bind(this));
 	    window.addEventListener('mousedown', this.onButtonDown.bind(this));
-	    window.addEventListener('touchstart', this.onButtonDown.bind(this));
 	    window.addEventListener('keyup', this.onButtonUp.bind(this));
 	    window.addEventListener('mouseup', this.onButtonUp.bind(this));
 
+	    window.addEventListener('touchstart', this.__onTouch.bind(this));
+	    window.addEventListener('touchmove', this.__onTouch.bind(this));
 	    window.addEventListener('mousemove', this.__onMouseMove.bind(this));
 
 
@@ -672,7 +673,7 @@
 	          dashSpeed: this.dashSpeed,
 	          dashVector: this.chargedirection
 	        });
-	        
+
 	      }
 
 
@@ -765,6 +766,17 @@
 	    if (pos === null) { return }
 	    this.__mouse.x = pos.x
 	    this.__mouse.y = pos.y
+	  },
+
+	  __onTouch: function (evt)
+	  {
+	    var touches = evt.changedTouches;
+
+	    for (var i = 0; i < touches.length; i++)
+	    {
+	      this.__mouse.x = touches[i].pageX;
+	      this.__mouse.y = touches[i].pageY;
+	    }
 	  },
 
 	  __onMouseMove: function (evt) {

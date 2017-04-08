@@ -40,7 +40,7 @@
         dash-move-controls="type:line; raycastCamera: #orbit-camera"
         velocity-trail
         wasd-controls>
-        <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.5">
+        <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.25">
         </a-sphere>
       </a-entity>
 
@@ -68,8 +68,8 @@
 
           document.addEventListener("dash-move", function(event)
           {
-            console.log(event.detail.dashSpeed);
-            console.log(event.detail.dashVector);
+            // console.log(event.detail.dashSpeed);
+            // console.log(event.detail.dashVector);
           });
 
           function addEventListeners()
