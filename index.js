@@ -13,50 +13,6 @@ if (typeof AFRAME === 'undefined') {
 /* global AFRAME */
 var utils = AFRAME.utils;
 
-
-AFRAME.registerComponent('daydream-remote', {
-  schema: {
-    textarea: {default: null}
-  },
-  init: function () {
-    var self = this;
-
-    this.sensorfusion = new MadgwickAHRS();
-    this.sensorfusion.setQuaternion( [ 0.7071067811865475, 0, 0, 0.7071067811865475 ] ); // Hack-ish: Rotate internal quaternion
-    this.connect = this.connect.bind(this);
-
-
-    window.addEventListener('connectRemote', function (evt) {
-      self.connect();
-    });
-
-  },
-
-  update: function (oldData) {
-  },
-
-  connect: function () {
-    var self = this;
-    this.controller = new DaydreamController();
-
-    this.controller.onStateChange( function ( state ) {
-
-      textarea.textContent = JSON.stringify( state, null, '\t' );
-
-      self.sensorfusion.update(
-        state.xGyro, state.yGyro, state.zGyro,
-        state.xAcc, state.yAcc, state.zAcc,
-        state.xOri, state.yOri, state.zOri
-      );
-
-    } );
-    this.controller.connect();
-
-  },
-
-
-});
-
 /**
  * Spawn bullets on an event.
  * Default schema optimized for Vive controllers.
@@ -444,8 +400,9 @@ AFRAME.registerComponent('dash-move-controls', {
     dashLineLength: {default: '3'},
     showTeleportRay: {default: true},
     showChargeLine: {default: false},
-    moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']}
+    moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']},
 
+    textarea: {default: null}
   },
 
   init: function () {
@@ -471,6 +428,7 @@ AFRAME.registerComponent('dash-move-controls', {
     this.keyUp = true;
     this.dashSpeed = 0;
     this.chargedirection = new THREE.Vector3();
+    this.daydreamRemote = false;
 
     teleportEntity = this.teleportEntity = document.createElement('a-entity');
     teleportEntity.classList.add('teleportRay');
@@ -496,7 +454,39 @@ AFRAME.registerComponent('dash-move-controls', {
     window.addEventListener('mousemove', this.__onMouseMove.bind(this));
 
 
+    var self = this;
+
+    this.sensorfusion = new MadgwickAHRS();
+    this.sensorfusion.setQuaternion( [ 0.7071067811865475, 0, 0, 0.7071067811865475 ] ); // Hack-ish: Rotate internal quaternion
+    this.connect = this.connect.bind(this);
+
+
+    window.addEventListener('connectRemote', function (evt) {
+      self.connect();
+    });
+
+
     this.queryCollisionEntities();
+  },
+
+  connect: function () {
+    var self = this;
+    this.controller = new DaydreamController();
+
+    this.controller.onStateChange( function ( state ) {
+      self.daydreamRemote = true;
+
+      // textarea.textContent = JSON.stringify( state, null, '\t' );
+
+      self.sensorfusion.update(
+        state.xGyro, state.yGyro, state.zGyro,
+        state.xAcc, state.yAcc, state.zAcc,
+        state.xOri, state.yOri, state.zOri
+      );
+
+    } );
+    this.controller.connect();
+
   },
 
   update: function (oldData) {
@@ -598,7 +588,23 @@ AFRAME.registerComponent('dash-move-controls', {
       var __mouse = this.__mouse;
 
       raycaster.ray.origin.setFromMatrixPosition(camera.matrixWorld)
-      var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+
+      var direction;
+
+      if (this.daydreamRemote)
+      {
+
+        var dirvec = new THREE.Vector3(0, 0, 0);
+        var sensorQuaternion = new THREE.Quaternion();
+        sensorQuaternion.fromArray(this.sensorfusion.getQuaternion());
+        var eul = new THREE.Euler().setFromQuaternion(sensorQuaternion, 'XYZ');
+
+        direction = raycaster.ray.direction.set(0, 0, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+        direction.applyEuler(eul);
+      }
+      else {
+        direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+      }
 
       if (this.data.showTeleportRay)
         this.line.setDirection(direction.clone());
