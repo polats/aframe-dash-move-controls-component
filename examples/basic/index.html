@@ -35,10 +35,12 @@
 
       <a-sphere color="tomato" depth="1" height="1" width="1" radius="0.25"
       dash-move-controls="type:line; raycastCamera: #orbit-camera"
+      daydream-remote="textarea: #textarea"
       velocity-trail position="0 2 0">
         <a-entity
           id="fps-camera"
-          camera="enabled: false;">
+          camera="enabled: false;"
+          >
         </a-entity>
       </a-sphere>
 
@@ -53,6 +55,10 @@
 
 <div style="position:absolute; top:0; left:0; padding:12px;" >
     <button id="changeCamera">Change Camera</button>
+    <button id="useRemote">Use Daydream Remote</button>
+    <span id="message"></span><br /><br />
+    <textarea id="textarea" rows="23" cols="50"></textarea>
+    <canvas id="canvas" width="400", height="300"></canvas><br /><br />
 </div>
 
       <script>
@@ -74,6 +80,7 @@
           {
               // TOGGLE ORBIT AND STATIC CAMERA
               document.querySelector('#changeCamera').addEventListener( 'click', handleSwitchCamera );
+              document.querySelector('#useRemote').addEventListener( 'click', useDaydreamRemote );
           }
 
           function handleSwitchCamera( event )
@@ -92,8 +99,13 @@
                   cam2.setAttribute('camera', 'active', false);
               }
           }
-      </script>
 
+      function useDaydreamRemote( event )
+      {
+        var cam1 = document.querySelector('#fps-camera');
+        cam1.emit('connectRemote');
+      }
+      </script>
 
 
     <!-- GitHub Corner. -->

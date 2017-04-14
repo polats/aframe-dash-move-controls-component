@@ -3,6 +3,8 @@ var cylinderTexture = require('./lib/cylinderTexture');
 var parabolicCurve = require('./lib/ParabolicCurve');
 var RayCurve = require('./lib/RayCurve');
 var TrailRenderer = require('./lib/TrailRenderer');
+var DaydreamController = require('./lib/DaydreamController');
+var MadgwickAHRS = require('./lib/MadgwickAHRS');
 
 if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
@@ -10,6 +12,50 @@ if (typeof AFRAME === 'undefined') {
 
 /* global AFRAME */
 var utils = AFRAME.utils;
+
+
+AFRAME.registerComponent('daydream-remote', {
+  schema: {
+    textarea: {default: null}
+  },
+  init: function () {
+    var self = this;
+
+    this.sensorfusion = new MadgwickAHRS();
+    this.sensorfusion.setQuaternion( [ 0.7071067811865475, 0, 0, 0.7071067811865475 ] ); // Hack-ish: Rotate internal quaternion
+    this.connect = this.connect.bind(this);
+
+
+    window.addEventListener('connectRemote', function (evt) {
+      self.connect();
+    });
+
+  },
+
+  update: function (oldData) {
+  },
+
+  connect: function () {
+    var self = this;
+    this.controller = new DaydreamController();
+
+    this.controller.onStateChange( function ( state ) {
+
+      textarea.textContent = JSON.stringify( state, null, '\t' );
+
+      self.sensorfusion.update(
+        state.xGyro, state.yGyro, state.zGyro,
+        state.xAcc, state.yAcc, state.zAcc,
+        state.xOri, state.yOri, state.zOri
+      );
+
+    } );
+    this.controller.connect();
+
+  },
+
+
+});
 
 /**
  * Spawn bullets on an event.
