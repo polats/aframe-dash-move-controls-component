@@ -494,7 +494,7 @@ AFRAME.registerComponent('dash-move-controls', {
 
           if ( self.initialised === false ) {
 
-            self.quaternionHome.copy( quaternion );
+            self.quaternionHome.copy( self.quaternion );
             self.quaternionHome.inverse();
 
             self.initialised = true;
@@ -513,7 +513,7 @@ AFRAME.registerComponent('dash-move-controls', {
 
             self.timeout = setTimeout( function () {
 
-              self.quaternionHome.copy( quaternion );
+              self.quaternionHome.copy( self.quaternion );
               self.quaternionHome.inverse();
 
             }, 1000 );
@@ -524,7 +524,7 @@ AFRAME.registerComponent('dash-move-controls', {
 
           if ( self.timeout !== null ) {
 
-            clearTimeout( timeout );
+            clearTimeout( self.timeout );
             self.timeout = null;
 
           }
