@@ -2,14 +2,13 @@
 require('aframe');
 require('../index.js');
 
-},{"../index.js":2,"aframe":9}],2:[function(require,module,exports){
+},{"../index.js":2,"aframe":8}],2:[function(require,module,exports){
 /* global THREE, AFRAME  */
 var cylinderTexture = require('./lib/cylinderTexture');
 var parabolicCurve = require('./lib/ParabolicCurve');
 var RayCurve = require('./lib/RayCurve');
 var TrailRenderer = require('./lib/TrailRenderer');
 var DaydreamController = require('./lib/DaydreamController');
-var MadgwickAHRS = require('./lib/MadgwickAHRS');
 
 if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
@@ -405,8 +404,9 @@ AFRAME.registerComponent('dash-move-controls', {
     dashLineLength: {default: '3'},
     showTeleportRay: {default: true},
     showChargeLine: {default: false},
-    moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']}
+    moveScheme: {default: 'cursor', oneOf: ['cursor', 'button']},
 
+    textarea: {default: null}
   },
 
   init: function () {
@@ -432,6 +432,7 @@ AFRAME.registerComponent('dash-move-controls', {
     this.keyUp = true;
     this.dashSpeed = 0;
     this.chargedirection = new THREE.Vector3();
+    this.daydreamRemote = false;
 
     teleportEntity = this.teleportEntity = document.createElement('a-entity');
     teleportEntity.classList.add('teleportRay');
@@ -457,7 +458,87 @@ AFRAME.registerComponent('dash-move-controls', {
     window.addEventListener('mousemove', this.__onMouseMove.bind(this));
 
 
+    var self = this;
+    this.axis = new THREE.Vector3();
+    this.quaternion = new THREE.Quaternion();
+    this.quaternionHome = new THREE.Quaternion();
+    this.showRemoteModel = true;
+
+    this.connect = this.connect.bind(this);
+
+
+    window.addEventListener('connectRemote', function (evt) {
+      self.connect();
+    });
+
+
     this.queryCollisionEntities();
+  },
+
+  connect: function () {
+    var self = this;
+    this.controller = new DaydreamController();
+
+    this.controller.onStateChange( function ( state ) {
+      self.daydreamRemote = true;
+
+      // textarea.textContent = JSON.stringify( state, null, '\t' );
+
+      if ( self.showRemoteModel ) {
+
+        var angle = Math.sqrt( state.xOri * state.xOri + state.yOri * state.yOri + state.zOri * state.zOri );
+
+        if ( angle > 0 ) {
+
+          self.axis.set( state.xOri, state.yOri, state.zOri )
+          self.axis.multiplyScalar( 1 / angle );
+
+          self.quaternion.setFromAxisAngle( self.axis, angle );
+
+          if ( initialised === false ) {
+
+            self.quaternionHome.copy( quaternion );
+            self.quaternionHome.inverse();
+
+            initialised = true;
+
+          }
+
+        } else {
+
+          self.quaternion.set( 0, 0, 0, 1 );
+
+        }
+
+        if ( state.isHomeDown ) {
+
+          if ( timeout === null ) {
+
+            timeout = setTimeout( function () {
+
+              self.quaternionHome.copy( quaternion );
+              self.quaternionHome.inverse();
+
+            }, 1000 );
+
+          }
+
+        } else {
+
+          if ( timeout !== null ) {
+
+            clearTimeout( timeout );
+            timeout = null;
+
+          }
+
+        }
+      }
+
+
+    } );
+    this.controller.connect();
+
   },
 
   update: function (oldData) {
@@ -559,7 +640,23 @@ AFRAME.registerComponent('dash-move-controls', {
       var __mouse = this.__mouse;
 
       raycaster.ray.origin.setFromMatrixPosition(camera.matrixWorld)
-      var direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+
+      var direction;
+
+      if (this.daydreamRemote)
+      {
+
+        var dirvec = new THREE.Vector3(0, 0, 0);
+        var sensorQuaternion = new THREE.Quaternion();
+        sensorQuaternion.fromArray(this.sensorfusion.getQuaternion());
+        var eul = new THREE.Euler().setFromQuaternion(sensorQuaternion, 'XYZ');
+
+        direction = raycaster.ray.direction.set(0, 0, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+        direction.applyEuler(eul);
+      }
+      else {
+        direction = raycaster.ray.direction.set(__mouse.x, __mouse.y, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
+      }
 
       if (this.data.showTeleportRay)
         this.line.setDirection(direction.clone());
@@ -971,7 +1068,7 @@ function createDefaultPlane () {
   return new THREE.Mesh(geometry, material);
 }
 
-},{"./lib/DaydreamController":3,"./lib/MadgwickAHRS":4,"./lib/ParabolicCurve":5,"./lib/RayCurve":6,"./lib/TrailRenderer":7,"./lib/cylinderTexture":8}],3:[function(require,module,exports){
+},{"./lib/DaydreamController":3,"./lib/ParabolicCurve":4,"./lib/RayCurve":5,"./lib/TrailRenderer":6,"./lib/cylinderTexture":7}],3:[function(require,module,exports){
 /**
  * @author mrdoob / http://mrdoob.com/
  */
@@ -1077,239 +1174,6 @@ function DaydreamController() {
 }
 
 },{}],4:[function(require,module,exports){
-/**
- * @author mrdoob / http://mrdoob.com/
- */
-
-function MadgwickAHRS() {
-
-	//=====================================================================================================
-	// MadgwickAHRS.c
-	//=====================================================================================================
-	//
-	// Implementation of Madgwick's IMU and AHRS algorithms.
-	// See: http://www.x-io.co.uk/node/8#open_source_ahrs_and_imu_algorithms
-	//
-	// Date         Author          Notes
-	// 29/09/2011   SOH Madgwick    Initial release
-	// 02/10/2011   SOH Madgwick    Optimised for reduced CPU load
-	// 19/02/2012   SOH Madgwick    Magnetometer measurement is normalised
-	//
-	//=====================================================================================================
-
-	"use strict";
-
-	//---------------------------------------------------------------------------------------------------
-	// Definitions
-
-	var sampleFreq = 100.0;  // sample frequency in Hz
-	var betaDef    =  1;   // 2 * proportional gain
-
-	//---------------------------------------------------------------------------------------------------
-	// Variable definitions
-
-	var beta = betaDef;                         // 2 * proportional gain (Kp)
-	var q0 = 1.0, q1 = 0.0, q2 = 0.0, q3 = 0.0; // quaternion of sensor frame relative to auxiliary frame
-
-	//====================================================================================================
-	// Functions
-
-	//---------------------------------------------------------------------------------------------------
-	// IMU algorithm update
-	function madgwickAHRSupdateIMU(gx, gy, gz, ax, ay, az) {
-			var recipNorm;
-			var s0, s1, s2, s3;
-			var qDot1, qDot2, qDot3, qDot4;
-			var V_2q0, V_2q1, V_2q2, V_2q3, V_4q0, V_4q1, V_4q2, V_8q1, V_8q2, q0q0, q1q1, q2q2, q3q3;
-
-			// Rate of change of quaternion from gyroscope
-			qDot1 = 0.5 * (-q1 * gx - q2 * gy - q3 * gz);
-			qDot2 = 0.5 * (q0 * gx + q2 * gz - q3 * gy);
-			qDot3 = 0.5 * (q0 * gy - q1 * gz + q3 * gx);
-			qDot4 = 0.5 * (q0 * gz + q1 * gy - q2 * gx);
-
-			// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
-			if (!((ax === 0.0) && (ay === 0.0) && (az === 0.0))) {
-
-					// Normalise accelerometer measurement
-					recipNorm = Math.pow(ax * ax + ay * ay + az * az, -0.5);
-					ax *= recipNorm;
-					ay *= recipNorm;
-					az *= recipNorm;
-
-					// Auxiliary variables to avoid repeated arithmetic
-					V_2q0 = 2.0 * q0;
-					V_2q1 = 2.0 * q1;
-					V_2q2 = 2.0 * q2;
-					V_2q3 = 2.0 * q3;
-					V_4q0 = 4.0 * q0;
-					V_4q1 = 4.0 * q1;
-					V_4q2 = 4.0 * q2;
-					V_8q1 = 8.0 * q1;
-					V_8q2 = 8.0 * q2;
-					q0q0 = q0 * q0;
-					q1q1 = q1 * q1;
-					q2q2 = q2 * q2;
-					q3q3 = q3 * q3;
-
-					// Gradient decent algorithm corrective step
-					s0 = V_4q0 * q2q2 + V_2q2 * ax + V_4q0 * q1q1 - V_2q1 * ay;
-					s1 = V_4q1 * q3q3 - V_2q3 * ax + 4.0 * q0q0 * q1 - V_2q0 * ay - V_4q1 + V_8q1 * q1q1 + V_8q1 * q2q2 + V_4q1 * az;
-					s2 = 4.0 * q0q0 * q2 + V_2q0 * ax + V_4q2 * q3q3 - V_2q3 * ay - V_4q2 + V_8q2 * q1q1 + V_8q2 * q2q2 + V_4q2 * az;
-					s3 = 4.0 * q1q1 * q3 - V_2q1 * ax + 4.0 * q2q2 * q3 - V_2q2 * ay;
-					recipNorm = Math.pow(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3, -0.5); // normalise step magnitude
-					s0 *= recipNorm;
-					s1 *= recipNorm;
-					s2 *= recipNorm;
-					s3 *= recipNorm;
-
-					// Apply feedback step
-					qDot1 -= beta * s0;
-					qDot2 -= beta * s1;
-					qDot3 -= beta * s2;
-					qDot4 -= beta * s3;
-			}
-
-			// Integrate rate of change of quaternion to yield quaternion
-			q0 += qDot1 * (1.0 / sampleFreq);
-			q1 += qDot2 * (1.0 / sampleFreq);
-			q2 += qDot3 * (1.0 / sampleFreq);
-			q3 += qDot4 * (1.0 / sampleFreq);
-
-			// Normalise quaternion
-			recipNorm = Math.pow(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3, -0.5);
-			q0 *= recipNorm;
-			q1 *= recipNorm;
-			q2 *= recipNorm;
-			q3 *= recipNorm;
-	}
-
-	//---------------------------------------------------------------------------------------------------
-	// AHRS algorithm update
-
-	function madgwickAHRSupdate(gx, gy, gz, ax, ay, az, mx, my, mz) {
-			var recipNorm;
-			var s0, s1, s2, s3;
-			var qDot1, qDot2, qDot3, qDot4;
-			var hx, hy;
-			var V_2q0mx, V_2q0my, V_2q0mz, V_2q1mx, V_2bx, V_2bz, V_4bx, V_4bz, V_2q0, V_2q1, V_2q2, V_2q3, V_2q0q2, V_2q2q3;
-			var q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
-
-			// Use IMU algorithm if magnetometer measurement invalid (avoids NaN in magnetometer normalisation)
-			if ((mx === 0.0) && (my === 0.0) && (mz === 0.0)) {
-					madgwickAHRSupdateIMU(gx, gy, gz, ax, ay, az);
-					return;
-			}
-
-			// Rate of change of quaternion from gyroscope
-			qDot1 = 0.5 * (-q1 * gx - q2 * gy - q3 * gz);
-			qDot2 = 0.5 * (q0 * gx + q2 * gz - q3 * gy);
-			qDot3 = 0.5 * (q0 * gy - q1 * gz + q3 * gx);
-			qDot4 = 0.5 * (q0 * gz + q1 * gy - q2 * gx);
-
-			// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
-			if (!((ax === 0.0) && (ay === 0.0) && (az === 0.0))) {
-
-					// Normalise accelerometer measurement
-					recipNorm = Math.pow(ax * ax + ay * ay + az * az,  -0.5);
-					ax *= recipNorm;
-					ay *= recipNorm;
-					az *= recipNorm;
-
-					// Normalise magnetometer measurement
-					recipNorm = Math.pow(mx * mx + my * my + mz * mz, -0.5);
-					mx *= recipNorm;
-					my *= recipNorm;
-					mz *= recipNorm;
-
-					// Auxiliary variables to avoid repeated arithmetic
-					V_2q0mx = 2.0 * q0 * mx;
-					V_2q0my = 2.0 * q0 * my;
-					V_2q0mz = 2.0 * q0 * mz;
-					V_2q1mx = 2.0 * q1 * mx;
-					V_2q0 = 2.0 * q0;
-					V_2q1 = 2.0 * q1;
-					V_2q2 = 2.0 * q2;
-					V_2q3 = 2.0 * q3;
-					V_2q0q2 = 2.0 * q0 * q2;
-					V_2q2q3 = 2.0 * q2 * q3;
-					q0q0 = q0 * q0;
-					q0q1 = q0 * q1;
-					q0q2 = q0 * q2;
-					q0q3 = q0 * q3;
-					q1q1 = q1 * q1;
-					q1q2 = q1 * q2;
-					q1q3 = q1 * q3;
-					q2q2 = q2 * q2;
-					q2q3 = q2 * q3;
-					q3q3 = q3 * q3;
-
-					// Reference direction of Earth's magnetic field
-					hx = mx * q0q0 - V_2q0my * q3 + V_2q0mz * q2 + mx * q1q1 + V_2q1 * my * q2 + V_2q1 * mz * q3 - mx * q2q2 - mx * q3q3;
-					hy = V_2q0mx * q3 + my * q0q0 - V_2q0mz * q1 + V_2q1mx * q2 - my * q1q1 + my * q2q2 + V_2q2 * mz * q3 - my * q3q3;
-					V_2bx = Math.sqrt(hx * hx + hy * hy);
-					V_2bz = -V_2q0mx * q2 + V_2q0my * q1 + mz * q0q0 + V_2q1mx * q3 - mz * q1q1 + V_2q2 * my * q3 - mz * q2q2 + mz * q3q3;
-					V_4bx = 2.0 * V_2bx;
-					V_4bz = 2.0 * V_2bz;
-
-					// Gradient decent algorithm corrective step
-					s0 = -V_2q2 * (2.0 * q1q3 - V_2q0q2 - ax) + V_2q1 * (2.0 * q0q1 + V_2q2q3 - ay) - V_2bz * q2 * (V_2bx * (0.5 - q2q2 - q3q3) + V_2bz * (q1q3 - q0q2) - mx) + (-V_2bx * q3 + V_2bz * q1) * (V_2bx * (q1q2 - q0q3) + V_2bz * (q0q1 + q2q3) - my) + V_2bx * q2 * (V_2bx * (q0q2 + q1q3) + V_2bz * (0.5 - q1q1 - q2q2) - mz);
-					s1 = V_2q3 * (2.0 * q1q3 - V_2q0q2 - ax) + V_2q0 * (2.0 * q0q1 + V_2q2q3 - ay) - 4.0 * q1 * (1 - 2.0 * q1q1 - 2.0 * q2q2 - az) + V_2bz * q3 * (V_2bx * (0.5 - q2q2 - q3q3) + V_2bz * (q1q3 - q0q2) - mx) + (V_2bx * q2 + V_2bz * q0) * (V_2bx * (q1q2 - q0q3) + V_2bz * (q0q1 + q2q3) - my) + (V_2bx * q3 - V_4bz * q1) * (V_2bx * (q0q2 + q1q3) + V_2bz * (0.5 - q1q1 - q2q2) - mz);
-					s2 = -V_2q0 * (2.0 * q1q3 - V_2q0q2 - ax) + V_2q3 * (2.0 * q0q1 + V_2q2q3 - ay) - 4.0 * q2 * (1 - 2.0 * q1q1 - 2.0 * q2q2 - az) + (-V_4bx * q2 - V_2bz * q0) * (V_2bx * (0.5 - q2q2 - q3q3) + V_2bz * (q1q3 - q0q2) - mx) + (V_2bx * q1 + V_2bz * q3) * (V_2bx * (q1q2 - q0q3) + V_2bz * (q0q1 + q2q3) - my) + (V_2bx * q0 - V_4bz * q2) * (V_2bx * (q0q2 + q1q3) + V_2bz * (0.5 - q1q1 - q2q2) - mz);
-					s3 = V_2q1 * (2.0 * q1q3 - V_2q0q2 - ax) + V_2q2 * (2.0 * q0q1 + V_2q2q3 - ay) + (-V_4bx * q3 + V_2bz * q1) * (V_2bx * (0.5 - q2q2 - q3q3) + V_2bz * (q1q3 - q0q2) - mx) + (-V_2bx * q0 + V_2bz * q2) * (V_2bx * (q1q2 - q0q3) + V_2bz * (q0q1 + q2q3) - my) + V_2bx * q1 * (V_2bx * (q0q2 + q1q3) + V_2bz * (0.5 - q1q1 - q2q2) - mz);
-					recipNorm = Math.pow(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3, -0.5); // normalise step magnitude
-					s0 *= recipNorm;
-					s1 *= recipNorm;
-					s2 *= recipNorm;
-					s3 *= recipNorm;
-
-					// Apply feedback step
-					qDot1 -= beta * s0;
-					qDot2 -= beta * s1;
-					qDot3 -= beta * s2;
-					qDot4 -= beta * s3;
-			}
-
-			// Integrate rate of change of quaternion to yield quaternion
-			q0 += qDot1 * (1.0 / sampleFreq);
-			q1 += qDot2 * (1.0 / sampleFreq);
-			q2 += qDot3 * (1.0 / sampleFreq);
-			q3 += qDot4 * (1.0 / sampleFreq);
-
-			// Normalise quaternion
-			recipNorm = Math.pow(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3, -0.5);
-			q0 *= recipNorm;
-			q1 *= recipNorm;
-			q2 *= recipNorm;
-			q3 *= recipNorm;
-	}
-
-	return {
-
-		getQuaternion: function () {
-
-			// https://github.com/ZiCog/madgwick.js/blob/master/scene.js#L339
-
-			return [ q1, q2, q3, q0 ];
-
-		},
-
-		setQuaternion: function ( array ) {
-
-			q1 = array[ 0 ];
-			q2 = array[ 1 ];
-			q3 = array[ 2 ];
-			q0 = array[ 3 ];
-
-		},
-
-		update: madgwickAHRSupdate,
-
-	}
-
-}
-
-},{}],5:[function(require,module,exports){
 /* global THREE */
 // Parabolic motion equation, y = p0 + v0*t + 1/2at^2
 function parabolicCurveScalar (p0, v0, a, t) {
@@ -1327,7 +1191,7 @@ function parabolicCurve (p0, v0, a, t) {
 
 module.exports = parabolicCurve;
 
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 /* global THREE */
 var RayCurve = function (numPoints, width) {
   this.geometry = new THREE.BufferGeometry();
@@ -1390,7 +1254,7 @@ RayCurve.prototype = {
 
 module.exports = RayCurve;
 
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /**
 * @author Mark Kellogg - http://www.github.com/mkkellogg
 */
@@ -2263,10 +2127,10 @@ THREE.TrailRenderer.prototype.activate = function() {
 
 }
 
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 module.exports = 'url(data:image/png;base64,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)';
 
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 (function (global){
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.AFRAME = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';

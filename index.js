@@ -4,7 +4,6 @@ var parabolicCurve = require('./lib/ParabolicCurve');
 var RayCurve = require('./lib/RayCurve');
 var TrailRenderer = require('./lib/TrailRenderer');
 var DaydreamController = require('./lib/DaydreamController');
-var MadgwickAHRS = require('./lib/MadgwickAHRS');
 
 if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
@@ -455,9 +454,13 @@ AFRAME.registerComponent('dash-move-controls', {
 
 
     var self = this;
+    this.axis = new THREE.Vector3();
+    this.quaternion = new THREE.Quaternion();
+    this.quaternionHome = new THREE.Quaternion();
+    this.showRemoteModel = true;
+    this.initialized = false;
+    this.timeout = null;
 
-    this.sensorfusion = new MadgwickAHRS();
-    this.sensorfusion.setQuaternion( [ 0.7071067811865475, 0, 0, 0.7071067811865475 ] ); // Hack-ish: Rotate internal quaternion
     this.connect = this.connect.bind(this);
 
 
@@ -476,13 +479,59 @@ AFRAME.registerComponent('dash-move-controls', {
     this.controller.onStateChange( function ( state ) {
       self.daydreamRemote = true;
 
-      // textarea.textContent = JSON.stringify( state, null, '\t' );
+      textarea.textContent = JSON.stringify( state, null, '\t' );
 
-      self.sensorfusion.update(
-        state.xGyro, state.yGyro, state.zGyro,
-        state.xAcc, state.yAcc, state.zAcc,
-        state.xOri, state.yOri, state.zOri
-      );
+      if ( self.showRemoteModel ) {
+
+        var angle = Math.sqrt( state.xOri * state.xOri + state.yOri * state.yOri + state.zOri * state.zOri );
+
+        if ( angle > 0 ) {
+
+          self.axis.set( state.xOri, state.yOri, state.zOri )
+          self.axis.multiplyScalar( 1 / angle );
+
+          self.quaternion.setFromAxisAngle( self.axis, angle );
+
+          if ( self.initialised === false ) {
+
+            self.quaternionHome.copy( quaternion );
+            self.quaternionHome.inverse();
+
+            self.initialised = true;
+
+          }
+
+        } else {
+
+          self.quaternion.set( 0, 0, 0, 1 );
+
+        }
+
+        if ( state.isHomeDown ) {
+
+          if ( self.timeout === null ) {
+
+            self.timeout = setTimeout( function () {
+
+              self.quaternionHome.copy( quaternion );
+              self.quaternionHome.inverse();
+
+            }, 1000 );
+
+          }
+
+        } else {
+
+          if ( self.timeout !== null ) {
+
+            clearTimeout( timeout );
+            self.timeout = null;
+
+          }
+
+        }
+      }
+
 
     } );
     this.controller.connect();
@@ -562,7 +611,7 @@ AFRAME.registerComponent('dash-move-controls', {
 
   tick: (function () {
     var p0 = new THREE.Vector3();
-    var quaternion = new THREE.Quaternion();
+    var tickQuaternion = new THREE.Quaternion();
     var translation = new THREE.Vector3();
     var scale = new THREE.Vector3();
     var shootAngle = new THREE.Vector3();
@@ -590,14 +639,13 @@ AFRAME.registerComponent('dash-move-controls', {
       raycaster.ray.origin.setFromMatrixPosition(camera.matrixWorld)
 
       var direction;
+      var self = this;
 
       if (this.daydreamRemote)
       {
-
         var dirvec = new THREE.Vector3(0, 0, 0);
         var sensorQuaternion = new THREE.Quaternion();
-        sensorQuaternion.fromArray(this.sensorfusion.getQuaternion());
-        var eul = new THREE.Euler().setFromQuaternion(sensorQuaternion, 'XYZ');
+        var eul = new THREE.Euler().setFromQuaternion(self.quaternion, 'XYZ');
 
         direction = raycaster.ray.direction.set(0, 0, 0.5).unproject(camera).sub(raycaster.ray.origin).normalize()
         direction.applyEuler(eul);
